@@ -169,3 +169,71 @@ exports.generateProposal = async (req, res) => {
         });
     }
 };
+
+/**
+ * @desc    Generate a cold outreach message/lead generation message
+ * @route   POST /api/ai/generate-lead
+ */
+exports.generateLead = async (req, res) => {
+    const { context } = req.body;
+
+    if (!context || typeof context !== 'string' || context.trim().length < 5) {
+        return res.status(400).json({ success: false, message: 'Valid context is required.' });
+    }
+
+    try {
+        const genAI = getGenAIClient();
+        const systemInstruction = await getSystemContext();
+
+        const finalPrompt = `
+            Write a highly converting cold outreach message/LinkedIn connection note based on this context:
+            "${context}"
+            
+            RULES:
+            1. Keep it short, focused on solving a specific problem.
+            2. Reference a relevant project from the Knowledge Base naturally.
+            3. End with a soft call to action.
+            
+            Format the output string directly, NO JSON. Just plain text.
+        `;
+
+        let responseText;
+        let modelUsed = PRIMARY_MODEL;
+        try {
+            console.log(`Attempting lead generation with ${PRIMARY_MODEL}...`);
+            const model = genAI.getGenerativeModel({
+                model: PRIMARY_MODEL,
+                systemInstruction: systemInstruction,
+            });
+            const result = await model.generateContent(finalPrompt);
+            responseText = result.response.text();
+
+        } catch (primaryError) {
+            if (!isRetryableModelError(primaryError)) {
+                throw primaryError;
+            }
+
+            console.warn(`Primary model failed for lead gen. Falling back to ${FALLBACK_MODEL}...`);
+            modelUsed = FALLBACK_MODEL;
+            const fallbackModel = genAI.getGenerativeModel({
+                model: FALLBACK_MODEL,
+                systemInstruction: systemInstruction,
+            });
+            const result = await fallbackModel.generateContent(finalPrompt);
+            responseText = result.response.text();
+        }
+
+        res.status(200).json({
+            success: true,
+            modelUsed,
+            data: responseText.trim()
+        });
+
+    } catch (error) {
+        console.error('Total Lead Generation Failure:', error);
+        res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Failed to generate lead message.'
+        });
+    }
+};
