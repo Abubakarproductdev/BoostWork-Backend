@@ -16,9 +16,9 @@ const aiRoutes = require('./routes/aiRoutes');
 connectDB();
 
 const app = express();
-const allowedOrigins = (process.env.CORS_ORIGIN || 'https://boost-working.vercel.app/')
+const allowedOrigins = (process.env.CORS_ORIGIN || 'https://boost-working.vercel.app, http://localhost:5173')
     .split(',')
-    .map((origin) => origin.trim())
+    .map((o) => o.trim().replace(/\/$/, ''))
     .filter(Boolean);
 const aiLimiter = createRateLimiter({
     windowMs: 60 * 1000,
@@ -32,11 +32,14 @@ app.set('trust proxy', 1);
 
 app.use(cors({
     origin(origin, callback) {
-        if (!origin || allowedOrigins.includes(origin)) {
+        if (!origin) return callback(null, true);
+        
+        const cleanOrigin = origin.replace(/\/$/, '');
+        if (allowedOrigins.includes(cleanOrigin)) {
             return callback(null, true);
         }
 
-        return callback(new Error('CORS origin not allowed.'));
+        return callback(new Error(`CORS origin not allowed: ${origin}`));
     },
 }));
 
