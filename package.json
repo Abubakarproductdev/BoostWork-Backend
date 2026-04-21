@@ -1,0 +1,31 @@
+{
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "colors": "^1.4.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.1",
+    "express": "^5.2.1",
+    "fs": "^0.0.1-security",
+    "mongodb": "^7.1.1",
+    "mongoose": "^9.4.1",
+    "node": "^25.9.0",
+    "nodemon": "^3.1.14",
+    "path": "^0.12.7",
+    "promise": "^8.3.0",
+    "promises": "^0.2.5"
+  },
+  "name": "backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "engines": {
+    "node": "22.x"
+  },
+ "scripts": {
+  "start": "node index.js",
+  "dev": "nodemon index.js",
+  "test": "echo \"Error: no test specified\" && exit 1"
+},
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}
