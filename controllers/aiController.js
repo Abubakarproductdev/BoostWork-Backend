@@ -1,23 +1,26 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const OpenAI = require('openai');
 const fs = require('fs').promises;
 const path = require('path');
 
 // Define your primary and fallback models
-const PRIMARY_MODEL = 'gemini-3-flash-preview';   // Fast, best for daily volume
-const FALLBACK_MODEL = 'gemini-1.5-flash-001';    // Reliable backup if rate limits hit
+const PRIMARY_MODEL = 'nvidia/nemotron-3-super-120b-a12b:free';   // Fast, best for daily volume
+const FALLBACK_MODEL = 'google/gemma-4-31b-it:free';    // Reliable backup if rate limits hit
 
 const portfolioFilePath = path.join(__dirname, '..', 'data', 'portfolioContext.txt');
 
 const getGenAIClient = () => {
-    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    const apiKey = process.env.OPENROUTER_API_KEY?.trim();
 
     if (!apiKey) {
-        const error = new Error('GEMINI_API_KEY is missing in Backend/.env');
+        const error = new Error('OPENROUTER_API_KEY is missing in Backend/.env');
         error.statusCode = 500;
         throw error;
     }
 
-    return new GoogleGenerativeAI(apiKey);
+    return new OpenAI({
+        baseURL: "https://openrouter.ai/api/v1",
+        apiKey: apiKey,
+    });
 };
 
 const isRetryableModelError = (error) => {
@@ -204,18 +207,19 @@ exports.generateProposal = async (req, res) => {
             }
         `;
 
-        // 4. Try Primary Model (Gemini 3 Flash)
+        // 4. Try Primary Model (OpenRouter)
         let responseText;
         let modelUsed = PRIMARY_MODEL;
         try {
             console.log(`Attempting generation with ${PRIMARY_MODEL}...`);
-            const model = genAI.getGenerativeModel({
+            const completion = await genAI.chat.completions.create({
                 model: PRIMARY_MODEL,
-                systemInstruction: systemInstruction,
-                generationConfig: { responseMimeType: "application/json" } // Forces JSON output
+                messages: [
+                    { role: "system", content: systemInstruction },
+                    { role: "user", content: finalPrompt }
+                ]
             });
-            const result = await model.generateContent(finalPrompt);
-            responseText = result.response.text();
+            responseText = completion.choices[0].message.content;
 
         } catch (primaryError) {
             if (!isRetryableModelError(primaryError)) {
@@ -224,19 +228,21 @@ exports.generateProposal = async (req, res) => {
 
             console.warn(`Primary model failed (Rate limit or error). Falling back to ${FALLBACK_MODEL}...`);
 
-            // 5. Fallback Mechanism (Gemini 1.5 Flash)
+            // 5. Fallback Mechanism (OpenRouter)
             modelUsed = FALLBACK_MODEL;
-            const fallbackModel = genAI.getGenerativeModel({
+            const fallbackCompletion = await genAI.chat.completions.create({
                 model: FALLBACK_MODEL,
-                systemInstruction: systemInstruction,
-                generationConfig: { responseMimeType: "application/json" }
+                messages: [
+                    { role: "system", content: systemInstruction },
+                    { role: "user", content: finalPrompt }
+                ]
             });
-            const result = await fallbackModel.generateContent(finalPrompt);
-            responseText = result.response.text();
+            responseText = fallbackCompletion.choices[0].message.content;
         }
 
-        // Parse the guaranteed JSON string into a real object
-        const proposalData = JSON.parse(responseText);
+        // Parse the JSON. Clean markdown block if models return ```json ... ```
+        const cleanJsonStr = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const proposalData = JSON.parse(cleanJsonStr);
 
         // 6. Send it to the frontend dashboard
         res.status(200).json({
@@ -285,12 +291,14 @@ exports.generateLead = async (req, res) => {
         let modelUsed = PRIMARY_MODEL;
         try {
             console.log(`Attempting lead generation with ${PRIMARY_MODEL}...`);
-            const model = genAI.getGenerativeModel({
+            const completion = await genAI.chat.completions.create({
                 model: PRIMARY_MODEL,
-                systemInstruction: systemInstruction,
+                messages: [
+                    { role: "system", content: systemInstruction },
+                    { role: "user", content: finalPrompt }
+                ]
             });
-            const result = await model.generateContent(finalPrompt);
-            responseText = result.response.text();
+            responseText = completion.choices[0].message.content;
 
         } catch (primaryError) {
             if (!isRetryableModelError(primaryError)) {
@@ -299,12 +307,14 @@ exports.generateLead = async (req, res) => {
 
             console.warn(`Primary model failed for lead gen. Falling back to ${FALLBACK_MODEL}...`);
             modelUsed = FALLBACK_MODEL;
-            const fallbackModel = genAI.getGenerativeModel({
+            const fallbackCompletion = await genAI.chat.completions.create({
                 model: FALLBACK_MODEL,
-                systemInstruction: systemInstruction,
+                messages: [
+                    { role: "system", content: systemInstruction },
+                    { role: "user", content: finalPrompt }
+                ]
             });
-            const result = await fallbackModel.generateContent(finalPrompt);
-            responseText = result.response.text();
+            responseText = fallbackCompletion.choices[0].message.content;
         }
 
         res.status(200).json({
