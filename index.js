@@ -6,7 +6,7 @@ dotenv.config({ path: path.join(__dirname, '.env'), quiet: true });
 const cors = require('cors');
 const colors = require('colors'); 
 const { createRateLimiter } = require('./middleware/security');
-const proposalRoutes = require('./routes/proposalRoutes');
+const proposalRoutes = require('./routes/ProposalRoutes');
 const connectDB = require('./Config/dbConfig');
 const portfolioRoutes = require('./routes/portfolioRoutes'); 
 const aiRoutes = require('./routes/aiRoutes'); 
@@ -45,6 +45,13 @@ app.use(express.urlencoded({ extended: false, limit: '100kb' }));
 
 
 // --- API Routes ---
+
+app.get('/health', (_req, res) => {
+    res.status(200).json({
+        success: true,
+        status: 'ok',
+    });
+});
 
 app.use('/api/proposals', proposalRoutes);
 app.use('/api/portfolio', portfolioRoutes); 
