@@ -35,7 +35,9 @@ app.use(cors({
         if (!origin) return callback(null, true);
         
         const cleanOrigin = origin.replace(/\/$/, '');
-        if (allowedOrigins.includes(cleanOrigin)) {
+        
+        // Allow exactly matched origins OR any Vercel deployment URL
+        if (allowedOrigins.includes(cleanOrigin) || /^https:\/\/(.*\.)?vercel\.app$/.test(cleanOrigin)) {
             return callback(null, true);
         }
 
