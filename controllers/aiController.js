@@ -2,8 +2,8 @@ const OpenAI = require('openai');
 const cacheService = require('../services/cacheService');
 
 // Define your primary and fallback models
-const PRIMARY_MODEL = 'nvidia/nemotron-3-super-120b-a12b:free';   // Fast, best for daily volume
-const FALLBACK_MODEL = 'google/gemma-4-31b-it:free';    // Reliable backup if rate limits hit
+const PRIMARY_MODEL = 'google/gemma-4-31b-it:free';   // Fast, best for daily volume
+const FALLBACK_MODEL = 'nvidia/nemotron-3-super-120b-a12b:free';    // Reliable backup if rate limits hit
 
 const getGenAIClient = () => {
     const apiKey = process.env.OPENROUTER_API_KEY?.trim();
@@ -41,13 +41,13 @@ const getSystemContext = async () => {
         const profile = portfolioData?.profile || {};
         const projects = portfolioData?.projects || [];
         const links = portfolioData?.links || [];
-        
+
         let portfolioContextStr = `Name: ${profile.fullName || 'Muhammad'}\nTitle: ${profile.title || 'Professional Industrial Designer'}\nBio: ${profile.bio || 'Expert in 3D printing products and DFM ready design workflows.'}\n\nPROJECTS:\n`;
-        
+
         projects.forEach(p => {
             portfolioContextStr += `- ${p.title} (${p.technologies?.join(', ') || ''}):\n  ${p.description}\n`;
         });
-        
+
         return `
            You are Muhammad's personal Upwork proposal writer and you are a professional industrial designer with experience in 3d printing products an DFM ready design and rendering expert.  You are NOT a generic AI assistant. You write proposals exactly the way Muhammad writes — casual, human, direct, and confident — never corporate, never robotic, never "AI-sounding."
 
@@ -111,28 +111,6 @@ Examples:
 - "Got a rough sketch or reference? I can sanity-check the feasibility before you commit to anything."
 
 
-
-
-## TONE CALIBRATION (read the client first)
-
-Before writing, silently classify the client:
-
-1. **Technical client** (uses words like SolidWorks, FEA, DFM, tolerances, GD&T, CAD, rendering specs): Match their vocabulary. Use 2–3 industry terms naturally. Show you speak their language.
-
-2. **Non-technical client** (says things like "I need a 3D model," "make it look good," "for my product"): Zero jargon. Explain things the way you'd explain to a friend. Focus on outcomes, not process.
-
-3. **Business/startup client** (mentions launch, MVP, investors, timeline): Talk speed, clarity, and decision-making — not technical depth.
-
-## HUMAN-WRITING CHECKLIST (self-audit before finishing)
-
-Before outputting, mentally check:
-- [ ] Does the first line feel like a text message, not a cover letter?
-- [ ] Did I use any banned AI words? (delete them)
-- [ ] Are there sentences under 8 words? (at least 2 should be)
-- [ ] Does it sound like ONE specific person wrote it — not a template?
-- [ ] Did I make the client feel *seen*, not *sold to*?
-- [ ] Is the portfolio link in paragraph 2?
-- [ ] Am I under 260 words?
 
 ## OUTPUT FORMAT
 
@@ -216,12 +194,12 @@ exports.generateProposal = async (req, res) => {
                     { role: "user", content: finalPrompt }
                 ]
             });
-            
+
             if (!completion || !completion.choices || completion.choices.length === 0) {
                 console.error("OpenRouter Error response:", completion);
                 throw new Error("OpenRouter API Key issue, provider offline, or rate limit hit. API returned an empty/malformed response.");
             }
-            
+
             responseText = completion.choices[0].message.content;
 
         } catch (primaryError) {
@@ -240,11 +218,11 @@ exports.generateProposal = async (req, res) => {
                     { role: "user", content: finalPrompt }
                 ]
             });
-            
+
             if (!fallbackCompletion || !fallbackCompletion.choices || fallbackCompletion.choices.length === 0) {
                 throw new Error("Fallback failed. Both models returned empty responses. Please verify your API Key and credits.");
             }
-            
+
             responseText = fallbackCompletion.choices[0].message.content;
         }
 
@@ -306,12 +284,12 @@ exports.generateLead = async (req, res) => {
                     { role: "user", content: finalPrompt }
                 ]
             });
-            
+
             if (!completion || !completion.choices || completion.choices.length === 0) {
                 console.error("OpenRouter Lead Gen Error response:", completion);
                 throw new Error("OpenRouter API returned an empty/malformed response.");
             }
-            
+
             responseText = completion.choices[0].message.content;
 
         } catch (primaryError) {
@@ -328,11 +306,11 @@ exports.generateLead = async (req, res) => {
                     { role: "user", content: finalPrompt }
                 ]
             });
-            
+
             if (!fallbackCompletion || !fallbackCompletion.choices || fallbackCompletion.choices.length === 0) {
                 throw new Error("Fallback lead generation failed. Please verify your API Key.");
             }
-            
+
             responseText = fallbackCompletion.choices[0].message.content;
         }
 
