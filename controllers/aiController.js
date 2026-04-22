@@ -1,12 +1,9 @@
 const OpenAI = require('openai');
-const fs = require('fs').promises;
-const path = require('path');
+const cacheService = require('../services/cacheService');
 
 // Define your primary and fallback models
 const PRIMARY_MODEL = 'nvidia/nemotron-3-super-120b-a12b:free';   // Fast, best for daily volume
 const FALLBACK_MODEL = 'google/gemma-4-31b-it:free';    // Reliable backup if rate limits hit
-
-const portfolioFilePath = path.join(__dirname, '..', 'data', 'portfolioContext.txt');
 
 const getGenAIClient = () => {
     const apiKey = process.env.OPENROUTER_API_KEY?.trim();
@@ -40,7 +37,17 @@ const isRetryableModelError = (error) => {
  */
 const getSystemContext = async () => {
     try {
-        const fileContent = await fs.readFile(portfolioFilePath, 'utf8');
+        const portfolioData = await cacheService.getPortfolioContext();
+        const profile = portfolioData?.profile || {};
+        const projects = portfolioData?.projects || [];
+        const links = portfolioData?.links || [];
+        
+        let portfolioContextStr = `Name: ${profile.fullName || 'Muhammad'}\nTitle: ${profile.title || 'Professional Industrial Designer'}\nBio: ${profile.bio || 'Expert in 3D printing products and DFM ready design workflows.'}\n\nPROJECTS:\n`;
+        
+        projects.forEach(p => {
+            portfolioContextStr += `- ${p.title} (${p.technologies?.join(', ') || ''}):\n  ${p.description}\n`;
+        });
+        
         return `
            You are Muhammad's personal Upwork proposal writer and you are a professional industrial designer with experience in 3d printing products an DFM ready design and rendering expert.  You are NOT a generic AI assistant. You write proposals exactly the way Muhammad writes — casual, human, direct, and confident — never corporate, never robotic, never "AI-sounding."
 
@@ -49,9 +56,9 @@ Your ONLY job: write proposals that make clients reply. Nothing else.
 ═══════════════════════════════════════════
 MUHAMMAD'S KNOWLEDGE BASE (his real projects & skills)
 ═══════════════════════════════════════════
-${fileContent}
+${portfolioContextStr}
 
-Portfolio link (always include in paragraph 2): https://industrial-ideation.vercel.app/
+Portfolio link (always include in paragraph 2): ${links[0]?.url || 'https://industrial-ideation.vercel.app/'}
 ═══════════════════════════════════════════
 
 ## CORE WRITING PHILOSOPHY
@@ -209,10 +216,16 @@ exports.generateProposal = async (req, res) => {
                     { role: "user", content: finalPrompt }
                 ]
             });
+            
+            if (!completion || !completion.choices || completion.choices.length === 0) {
+                console.error("OpenRouter Error response:", completion);
+                throw new Error("OpenRouter API Key issue, provider offline, or rate limit hit. API returned an empty/malformed response.");
+            }
+            
             responseText = completion.choices[0].message.content;
 
         } catch (primaryError) {
-            if (!isRetryableModelError(primaryError)) {
+            if (!isRetryableModelError(primaryError) && !primaryError.message.includes("OpenRouter")) {
                 throw primaryError;
             }
 
@@ -227,6 +240,11 @@ exports.generateProposal = async (req, res) => {
                     { role: "user", content: finalPrompt }
                 ]
             });
+            
+            if (!fallbackCompletion || !fallbackCompletion.choices || fallbackCompletion.choices.length === 0) {
+                throw new Error("Fallback failed. Both models returned empty responses. Please verify your API Key and credits.");
+            }
+            
             responseText = fallbackCompletion.choices[0].message.content;
         }
 
@@ -288,10 +306,16 @@ exports.generateLead = async (req, res) => {
                     { role: "user", content: finalPrompt }
                 ]
             });
+            
+            if (!completion || !completion.choices || completion.choices.length === 0) {
+                console.error("OpenRouter Lead Gen Error response:", completion);
+                throw new Error("OpenRouter API returned an empty/malformed response.");
+            }
+            
             responseText = completion.choices[0].message.content;
 
         } catch (primaryError) {
-            if (!isRetryableModelError(primaryError)) {
+            if (!isRetryableModelError(primaryError) && !primaryError.message.includes("OpenRouter")) {
                 throw primaryError;
             }
 
@@ -304,6 +328,11 @@ exports.generateLead = async (req, res) => {
                     { role: "user", content: finalPrompt }
                 ]
             });
+            
+            if (!fallbackCompletion || !fallbackCompletion.choices || fallbackCompletion.choices.length === 0) {
+                throw new Error("Fallback lead generation failed. Please verify your API Key.");
+            }
+            
             responseText = fallbackCompletion.choices[0].message.content;
         }
 
