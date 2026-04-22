@@ -17,6 +17,8 @@ const getGenAIClient = () => {
     return new OpenAI({
         baseURL: "https://openrouter.ai/api/v1",
         apiKey: apiKey,
+        timeout: 12000, // Force a 12 second maximum wait-time per model
+        maxRetries: 0, // Disable internal SDK retries so it falls back to the secondary model immediately
     });
 };
 
