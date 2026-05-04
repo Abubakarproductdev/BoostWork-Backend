@@ -1,37 +1,19 @@
-const OpenAI = require('openai');
+const { GoogleGenAI } = require('@google/genai');
 const cacheService = require('../services/cacheService');
 
-// Define your primary and fallback models
-const PRIMARY_MODEL = 'google/gemma-4-31b-it:free';   // Fast, best for daily volume
-const FALLBACK_MODEL = 'nvidia/nemotron-3-super-120b-a12b:free';    // Reliable backup if rate limits hit
+// Gemini model to use
+const GEMINI_MODEL = 'gemini-2.0-flash';
 
 const getGenAIClient = () => {
-    const apiKey = process.env.OPENROUTER_API_KEY?.trim();
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
 
     if (!apiKey) {
-        const error = new Error('OPENROUTER_API_KEY is missing in Backend/.env');
+        const error = new Error('GEMINI_API_KEY is missing in Backend/.env');
         error.statusCode = 500;
         throw error;
     }
 
-    return new OpenAI({
-        baseURL: "https://openrouter.ai/api/v1",
-        apiKey: apiKey,
-        timeout: 12000, // Force a 12 second maximum wait-time per model
-        maxRetries: 0, // Disable internal SDK retries so it falls back to the secondary model immediately
-    });
-};
-
-const isRetryableModelError = (error) => {
-    const message = `${error?.message || ''}`.toLowerCase();
-
-    return (
-        message.includes('429') ||
-        message.includes('rate limit') ||
-        message.includes('resource_exhausted') ||
-        message.includes('unavailable') ||
-        message.includes('timeout')
-    );
+    return new GoogleGenAI({ apiKey });
 };
 
 /**
@@ -142,7 +124,7 @@ const analyzePersona = (jobDescription) => {
 };
 
 /**
- * @desc    Generate a proposal with Model Fallback
+ * @desc    Generate a proposal using Gemini 2.0 Flash
  * @route   POST /api/ai/generate-proposal
  */
 exports.generateProposal = async (req, res) => {
@@ -184,58 +166,30 @@ exports.generateProposal = async (req, res) => {
             }
         `;
 
-        // 4. Try Primary Model (OpenRouter)
-        let responseText;
-        let modelUsed = PRIMARY_MODEL;
-        try {
-            console.log(`Attempting generation with ${PRIMARY_MODEL}...`);
-            const completion = await genAI.chat.completions.create({
-                model: PRIMARY_MODEL,
-                messages: [
-                    { role: "system", content: systemInstruction },
-                    { role: "user", content: finalPrompt }
-                ]
-            });
-
-            if (!completion || !completion.choices || completion.choices.length === 0) {
-                console.error("OpenRouter Error response:", completion);
-                throw new Error("OpenRouter API Key issue, provider offline, or rate limit hit. API returned an empty/malformed response.");
+        // 4. Call Gemini 2.0 Flash
+        console.log(`Generating proposal with ${GEMINI_MODEL}...`);
+        const response = await genAI.models.generateContent({
+            model: GEMINI_MODEL,
+            contents: finalPrompt,
+            config: {
+                systemInstruction: systemInstruction,
             }
+        });
 
-            responseText = completion.choices[0].message.content;
+        const responseText = response.text;
 
-        } catch (primaryError) {
-            if (!isRetryableModelError(primaryError) && !primaryError.message.includes("OpenRouter")) {
-                throw primaryError;
-            }
-
-            console.warn(`Primary model failed (Rate limit or error). Falling back to ${FALLBACK_MODEL}...`);
-
-            // 5. Fallback Mechanism (OpenRouter)
-            modelUsed = FALLBACK_MODEL;
-            const fallbackCompletion = await genAI.chat.completions.create({
-                model: FALLBACK_MODEL,
-                messages: [
-                    { role: "system", content: systemInstruction },
-                    { role: "user", content: finalPrompt }
-                ]
-            });
-
-            if (!fallbackCompletion || !fallbackCompletion.choices || fallbackCompletion.choices.length === 0) {
-                throw new Error("Fallback failed. Both models returned empty responses. Please verify your API Key and credits.");
-            }
-
-            responseText = fallbackCompletion.choices[0].message.content;
+        if (!responseText) {
+            throw new Error('Gemini returned an empty response. Please try again.');
         }
 
-        // Parse the JSON. Clean markdown block if models return ```json ... ```
+        // Parse the JSON. Clean markdown block if model returns ```json ... ```
         const cleanJsonStr = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
         const proposalData = JSON.parse(cleanJsonStr);
 
-        // 6. Send it to the frontend dashboard
+        // 5. Send it to the frontend dashboard
         res.status(200).json({
             success: true,
-            modelUsed,
+            modelUsed: GEMINI_MODEL,
             data: proposalData
         });
 
@@ -275,50 +229,24 @@ exports.generateLead = async (req, res) => {
             Format the output string directly, NO JSON. Just plain text.
         `;
 
-        let responseText;
-        let modelUsed = PRIMARY_MODEL;
-        try {
-            console.log(`Attempting lead generation with ${PRIMARY_MODEL}...`);
-            const completion = await genAI.chat.completions.create({
-                model: PRIMARY_MODEL,
-                messages: [
-                    { role: "system", content: systemInstruction },
-                    { role: "user", content: finalPrompt }
-                ]
-            });
-
-            if (!completion || !completion.choices || completion.choices.length === 0) {
-                console.error("OpenRouter Lead Gen Error response:", completion);
-                throw new Error("OpenRouter API returned an empty/malformed response.");
+        console.log(`Generating lead with ${GEMINI_MODEL}...`);
+        const response = await genAI.models.generateContent({
+            model: GEMINI_MODEL,
+            contents: finalPrompt,
+            config: {
+                systemInstruction: systemInstruction,
             }
+        });
 
-            responseText = completion.choices[0].message.content;
+        const responseText = response.text;
 
-        } catch (primaryError) {
-            if (!isRetryableModelError(primaryError) && !primaryError.message.includes("OpenRouter")) {
-                throw primaryError;
-            }
-
-            console.warn(`Primary model failed for lead gen. Falling back to ${FALLBACK_MODEL}...`);
-            modelUsed = FALLBACK_MODEL;
-            const fallbackCompletion = await genAI.chat.completions.create({
-                model: FALLBACK_MODEL,
-                messages: [
-                    { role: "system", content: systemInstruction },
-                    { role: "user", content: finalPrompt }
-                ]
-            });
-
-            if (!fallbackCompletion || !fallbackCompletion.choices || fallbackCompletion.choices.length === 0) {
-                throw new Error("Fallback lead generation failed. Please verify your API Key.");
-            }
-
-            responseText = fallbackCompletion.choices[0].message.content;
+        if (!responseText) {
+            throw new Error('Gemini returned an empty response for lead generation. Please try again.');
         }
 
         res.status(200).json({
             success: true,
-            modelUsed,
+            modelUsed: GEMINI_MODEL,
             data: responseText.trim()
         });
 
