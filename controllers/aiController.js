@@ -2,7 +2,7 @@ const { GoogleGenAI } = require('@google/genai');
 const cacheService = require('../services/cacheService');
 
 // Gemini model to use
-const GEMINI_MODEL = 'gemini-3-flash';
+const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 
 const getGenAIClient = () => {
     const apiKey = process.env.GEMINI_API_KEY?.trim();
