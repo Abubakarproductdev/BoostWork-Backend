@@ -1,19 +1,52 @@
-const { GoogleGenAI } = require('@google/genai');
 const cacheService = require('../services/cacheService');
 
-// Gemini model to use
-const GEMINI_MODEL = 'gemini-2.5-flash-lite';
+// Groq-hosted model to use
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
-const getGenAIClient = () => {
-    const apiKey = process.env.GEMINI_API_KEY?.trim();
+const getGroqApiKey = () => {
+    const apiKey = process.env.GROQ_API_KEY?.trim() || process.env.GROK_API_KEY?.trim();
 
     if (!apiKey) {
-        const error = new Error('GEMINI_API_KEY is missing in Backend/.env');
+        const error = new Error('GROQ_API_KEY (or GROK_API_KEY) is missing in Backend/.env');
         error.statusCode = 500;
         throw error;
     }
 
-    return new GoogleGenAI({ apiKey });
+    return apiKey;
+};
+
+const generateGroqContent = async ({ systemInstruction, prompt }) => {
+    const apiKey = getGroqApiKey();
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            model: GROQ_MODEL,
+            messages: [
+                { role: 'system', content: systemInstruction },
+                { role: 'user', content: prompt }
+            ]
+        })
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        const error = new Error(`Groq API error (${response.status}): ${errorText}`);
+        error.statusCode = response.status;
+        throw error;
+    }
+
+    const data = await response.json();
+    const responseText = data?.choices?.[0]?.message?.content;
+
+    if (!responseText || typeof responseText !== 'string') {
+        throw new Error('Groq returned an empty response. Please try again.');
+    }
+
+    return responseText;
 };
 
 /**
@@ -124,7 +157,7 @@ const analyzePersona = (jobDescription) => {
 };
 
 /**
- * @desc    Generate a proposal using Gemini 2.0 Flash
+ * @desc    Generate a proposal using Groq
  * @route   POST /api/ai/generate-proposal
  */
 exports.generateProposal = async (req, res) => {
@@ -143,8 +176,6 @@ exports.generateProposal = async (req, res) => {
     }
 
     try {
-        const genAI = getGenAIClient();
-
         // 1. Get Muhammad's entire history and rules (The Brain)
         const systemInstruction = await getSystemContext();
 
@@ -166,21 +197,12 @@ exports.generateProposal = async (req, res) => {
             }
         `;
 
-        // 4. Call Gemini 2.0 Flash
-        console.log(`Generating proposal with ${GEMINI_MODEL}...`);
-        const response = await genAI.models.generateContent({
-            model: GEMINI_MODEL,
-            contents: finalPrompt,
-            config: {
-                systemInstruction: systemInstruction,
-            }
+        // 4. Call Groq chat completions
+        console.log(`Generating proposal with ${GROQ_MODEL}...`);
+        const responseText = await generateGroqContent({
+            systemInstruction,
+            prompt: finalPrompt
         });
-
-        const responseText = response.text;
-
-        if (!responseText) {
-            throw new Error('Gemini returned an empty response. Please try again.');
-        }
 
         // Parse the JSON. Clean markdown block if model returns ```json ... ```
         const cleanJsonStr = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
@@ -189,7 +211,7 @@ exports.generateProposal = async (req, res) => {
         // 5. Send it to the frontend dashboard
         res.status(200).json({
             success: true,
-            modelUsed: GEMINI_MODEL,
+            modelUsed: GROQ_MODEL,
             data: proposalData
         });
 
@@ -214,7 +236,6 @@ exports.generateLead = async (req, res) => {
     }
 
     try {
-        const genAI = getGenAIClient();
         const systemInstruction = await getSystemContext();
 
         const finalPrompt = `
@@ -229,24 +250,15 @@ exports.generateLead = async (req, res) => {
             Format the output string directly, NO JSON. Just plain text.
         `;
 
-        console.log(`Generating lead with ${GEMINI_MODEL}...`);
-        const response = await genAI.models.generateContent({
-            model: GEMINI_MODEL,
-            contents: finalPrompt,
-            config: {
-                systemInstruction: systemInstruction,
-            }
+        console.log(`Generating lead with ${GROQ_MODEL}...`);
+        const responseText = await generateGroqContent({
+            systemInstruction,
+            prompt: finalPrompt
         });
-
-        const responseText = response.text;
-
-        if (!responseText) {
-            throw new Error('Gemini returned an empty response for lead generation. Please try again.');
-        }
 
         res.status(200).json({
             success: true,
-            modelUsed: GEMINI_MODEL,
+            modelUsed: GROQ_MODEL,
             data: responseText.trim()
         });
 
