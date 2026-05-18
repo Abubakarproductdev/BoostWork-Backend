@@ -4,10 +4,11 @@ const cacheService = require('../services/cacheService');
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
 const getGroqApiKey = () => {
+    // Keep GROK_API_KEY as legacy typo compatibility fallback.
     const apiKey = process.env.GROQ_API_KEY?.trim() || process.env.GROK_API_KEY?.trim();
 
     if (!apiKey) {
-        const error = new Error('GROQ_API_KEY (or GROK_API_KEY) is missing in Backend/.env');
+        const error = new Error('GROQ_API_KEY is missing in Backend/.env (GROK_API_KEY is also accepted for backward compatibility).');
         error.statusCode = 500;
         throw error;
     }
