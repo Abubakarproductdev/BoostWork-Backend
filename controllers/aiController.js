@@ -153,7 +153,7 @@ Good closing examples:
 
 ## HARD LIMITS
 
-- Total length: 140-220 words. Never more.
+- Total length: 150-200 words. Never more.
 - No markdown formatting (no **bold** , no headers, no bullets unless requested)
 - No portfolio URL/link in the text. Only OFFER to show it.
 - No fake projects. Only use what's in the knowledge base above.
