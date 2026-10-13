@@ -14,7 +14,7 @@ require('./services/workflows');
  */
 const createApp = () => {
     const app = express();
-    const allowedOrigins = (process.env.CORS_ORIGIN || 'https://boost-working.vercel.app, http://localhost:5173')
+    const allowedOrigins = (process.env.CORS_ORIGIN || 'https://boostwork.vercel.app, http://localhost:5173')
         .split(',')
         .map((o) => o.trim().replace(/\/$/, ''))
         .filter(Boolean);

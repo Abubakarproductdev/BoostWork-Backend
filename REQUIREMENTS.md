@@ -40,7 +40,7 @@ Set these in `Backend/.env` locally and in **Azure → Web App → Settings → 
 | `MONGO_URI` | ✔ | MongoDB Atlas connection string. The server exits on startup if it can't connect |
 | `GROQ_API_KEY` | ✔ | Groq API key for proposal and lead generation (`GROK_API_KEY` is accepted as a fallback) |
 | `FIREBASE_PROJECT_ID` | ✔ | `boostwork-469a4`. Must match the frontend's Firebase project or every request gets a 401 |
-| `CORS_ORIGIN` | recommended | Comma-separated allowed origins, e.g. `https://boost-working.vercel.app,http://localhost:5173`. `*.vercel.app` is always allowed |
+| `CORS_ORIGIN` | recommended | Comma-separated allowed origins, e.g. `https://boostwork.vercel.app,http://localhost:5173`. `*.vercel.app` is always allowed |
 | `NODE_ENV` | recommended | `production` on Azure |
 | `SEARCH_PROVIDER` | for research | `tavily`, `brave` or `exa`. Without it, Research and Market research are disabled with a clear message |
 | `SEARCH_API_KEY` | for research | API key for the chosen search provider |
