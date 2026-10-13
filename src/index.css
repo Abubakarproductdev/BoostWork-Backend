@@ -1,66 +1,277 @@
 @import "tailwindcss";
 
-@layer base {
-  :root {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+/* ------------------------------------------------------------------
+   BoostWork design tokens. Solid colours only: no gradients, glows or blur.
+   Brand palette: sun #FFCE1B, teal #069594, cream paper, pitch black. No orange.
+   Token names are semantic roles mapped onto that palette:
+     ember / flamingo -> sun        (primary actions, highlights; black text on top)
+     lagoon           -> teal       (success, wins, focus)
+     ultraviolet/sky  -> teal       (same #069594; no other shades)
+     sunbeam          -> sun        (bold highlight fills, dark text on top)
+   Only #FFCE1B, #069594, black and cream (plus red for errors). No tints.
+   ------------------------------------------------------------------ */
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+:root,
+[data-theme="light"] {
+  color-scheme: light;
 
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+  /* Cream paper surfaces, pitch-black ink */
+  --bg: #f3ecdc;
+  --surface: #fbf6ea;
+  --surface-2: #f1e9d7;
+  --surface-3: #e6dcc6;
+  --line: #e7decb;
+  --line-strong: #d6cab2;
+  --ink: #000000;
+  --ink-2: #4f4b42;
+  --ink-3: #8a8476;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+  /* Orange removed: the warm accent roles all use the brand yellow */
+  --ember: #ffce1b;
+  --ember-2: #ffce1b;
+  --flamingo: #ffce1b;
+  --ultraviolet: #069594;
+  --lagoon: #069594;
+  --sunbeam: #ffce1b;
+  --sunbeam-ink: #000000;
+  --sky: #069594;
+  --danger: #c62828;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+  --on-accent: #fbf7ee;
+  --on-sunbeam: #000000;
+  --shadow-color: 0 0 0;
+  /* No tinted shades: "soft" fills are the plain surface; colour comes from borders/text */
+  --sunbeam-soft: #fbf6ea;
+  --lagoon-soft: #fbf6ea;
+  --ultraviolet-soft: #fbf6ea;
+  --danger-soft: #fbf6ea;
+  --ink-soft: #fbf6ea;
+  --overlay: #000000;
+}
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+[data-theme="dark"] {
+  color-scheme: dark;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+  /* Pitch-black background, cream text */
+  --bg: #000000;
+  --surface: #000000;
+  --surface-2: #000000;
+  --surface-3: #121212;
+  --line: #262626;
+  --line-strong: #3a3a3a;
+  --ink: #f7f1e3;
+  --ink-2: #b5ae9e;
+  --ink-3: #7a7468;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
-  }
+  --ember: #ffce1b;
+  --ember-2: #ffce1b;
+  --flamingo: #ffce1b;
+  --ultraviolet: #069594;
+  --lagoon: #069594;
+  --sunbeam: #ffce1b;
+  --sunbeam-ink: #ffce1b;
+  --sky: #069594;
+  --danger: #ff5a5a;
+
+  /* Accents are bright on black, so text on them is black */
+  --on-accent: #000000;
+  --on-sunbeam: #000000;
+  --shadow-color: 0 0 0;
+  --sunbeam-soft: #000000;
+  --lagoon-soft: #000000;
+  --ultraviolet-soft: #000000;
+  --danger-soft: #000000;
+  --ink-soft: #000000;
+  --overlay: #000000;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ember: var(--ember);
+  --color-ember-2: var(--ember-2);
+  --color-flamingo: var(--flamingo);
+  --color-ultraviolet: var(--ultraviolet);
+  --color-lagoon: var(--lagoon);
+  --color-sunbeam: var(--sunbeam);
+  --color-sunbeam-ink: var(--sunbeam-ink);
+  --color-sky: var(--sky);
+  --color-danger: var(--danger);
+  --color-on-accent: var(--on-accent);
+  --color-on-sunbeam: var(--on-sunbeam);
+  --color-sunbeam-soft: var(--sunbeam-soft);
+  --color-lagoon-soft: var(--lagoon-soft);
+  --color-ultraviolet-soft: var(--ultraviolet-soft);
+  --color-danger-soft: var(--danger-soft);
+  --color-ink-soft: var(--ink-soft);
+  --color-sky-soft: var(--ultraviolet-soft);
+  --color-ember-soft: var(--sunbeam-soft);
+  --color-flamingo-soft: var(--sunbeam-soft);
+  --color-overlay: var(--overlay);
+
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Bricolage Grotesque", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius-xl: 1rem;
+  --radius-2xl: 1.375rem;
+  --radius-3xl: 1.75rem;
 }
 
 @layer base {
-  * {
-    @apply border-[hsl(var(--border))];
+  html {
+    background: var(--bg);
   }
+
   body {
-    @apply bg-[#0c0a09] text-[hsl(var(--foreground))] antialiased selection:bg-[hsl(var(--primary))] selection:text-[hsl(var(--primary-foreground))];
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+
+  ::selection {
+    background: var(--sunbeam);
+    color: var(--on-sunbeam);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--lagoon);
+    outline-offset: 2px;
+  }
+
+  * {
+    border-color: var(--line);
   }
 }
 
-.glass-panel {
-  @apply bg-[#1c1917]/50 backdrop-blur-xl border border-white/5;
+@layer components {
+  /* Brand: solid yellow. Highlighted words get a yellow marker with black text,
+     which stays readable on cream and on black. */
+  .bg-brand {
+    background-color: var(--sunbeam);
+  }
+
+  .text-brand {
+    background-color: var(--lagoon);
+    color: #000000;
+    padding: 0 0.18em;
+    border-radius: 0.22em;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-2xl);
+    box-shadow: 0 1px 2px rgb(var(--shadow-color) / 0.05);
+  }
+
+  .glass {
+    background: var(--surface);
+    border: 1px solid var(--line);
+  }
+
+  .field {
+    width: 100%;
+    background: var(--surface-2);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 0.875rem;
+    padding: 0.65rem 0.95rem;
+    font-size: 0.925rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  }
+
+  .field::placeholder {
+    color: var(--ink-3);
+  }
+
+  .field:focus {
+    outline: none;
+    background: var(--surface);
+    border-color: var(--lagoon);
+    box-shadow: 0 0 0 1px var(--lagoon);
+  }
+
+  .field:disabled {
+    color: var(--ink-3);
+    cursor: not-allowed;
+  }
+
+  .label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--ink-2);
+    margin-bottom: 0.4rem;
+    letter-spacing: 0.01em;
+  }
+
+  .eyebrow {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
 }
 
-/* Custom Scrollbar for better look */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+@keyframes pop {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { background: var(--line-strong); }
+}
+
+.animate-rise { animation: rise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.animate-pop { animation: pop 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+.skeleton {
+  background: var(--surface-3);
+  animation: pulse-soft 1.4s ease-in-out infinite;
+  border-radius: 0.75rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: #292524;
-  border-radius: 4px;
+  background: var(--line-strong);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
 }
-
-::-webkit-scrollbar-thumb:hover {
-  background: #44403c;
-}
+::-webkit-scrollbar-thumb:hover { background-color: var(--ink-3); }

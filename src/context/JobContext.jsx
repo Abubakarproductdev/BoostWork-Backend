@@ -93,8 +93,17 @@ export const JobProvider = ({ children, userId }) => {
     }));
   };
 
+  const removeJob = (id) => {
+    const newJobs = jobs.filter((job) => job._id !== id && job.id !== id);
+    setJobs(newJobs);
+    localStorage.setItem(cacheKey, JSON.stringify({
+      timestamp: Date.now(),
+      data: newJobs,
+    }));
+  };
+
   return (
-    <JobContext.Provider value={{ jobs, isLoading, addJob, updateJob, refreshJobs: () => fetchJobs(true) }}>
+    <JobContext.Provider value={{ jobs, isLoading, addJob, updateJob, removeJob, refreshJobs: () => fetchJobs(true) }}>
       {children}
     </JobContext.Provider>
   );

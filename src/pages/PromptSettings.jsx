@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, CheckCircle2, FileSliders, RefreshCw, RotateCcw, Save } from 'lucide-react';
+import { Braces, Check, Megaphone, PenLine, RotateCcw, Save, Settings2 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { apiFetch } from '../lib/api';
+import { apiJson } from '../lib/workflows';
+import { Badge, Button, Card, PageHeader, Spinner, TONES } from '../components/ui';
 
 const EMPTY_PROMPTS = {
   proposalSystemInstruction: '',
@@ -12,23 +13,26 @@ const EMPTY_PROMPTS = {
 const PROMPT_SECTIONS = [
   {
     key: 'proposalSystemInstruction',
-    title: 'Proposal system instructions',
-    detail: 'Main behavior, voice, structure, portfolio context, and output rules.',
-    rows: 20,
+    title: 'Voice & rules',
+    detail: 'The main instructions: your voice, structure and banned phrases. Used by the full workflow, quick drafts and lead messages.',
+    icon: Settings2,
+    tone: 'flamingo',
     tokens: ['{{PORTFOLIO_CONTEXT}}'],
   },
   {
     key: 'proposalUserInstruction',
-    title: 'Proposal generation prompt',
-    detail: 'Job-post analysis and JSON response format.',
-    rows: 14,
+    title: 'Quick draft prompt',
+    detail: 'Job analysis and JSON format for Quick draft mode in the Writer.',
+    icon: PenLine,
+    tone: 'ultraviolet',
     tokens: ['{{PERSONA}}', '{{JOB_DESCRIPTION}}'],
   },
   {
     key: 'leadUserInstruction',
-    title: 'Lead generation prompt',
-    detail: 'Cold outreach message instructions.',
-    rows: 8,
+    title: 'Lead message prompt',
+    detail: 'Instructions for cold outreach messages on the Leads page.',
+    icon: Megaphone,
+    tone: 'sunbeam',
     tokens: ['{{CONTEXT}}'],
   },
 ];
@@ -36,63 +40,36 @@ const PROMPT_SECTIONS = [
 export default function PromptSettings() {
   const [prompts, setPrompts] = useState(EMPTY_PROMPTS);
   const [savedPrompts, setSavedPrompts] = useState(EMPTY_PROMPTS);
+  const [active, setActive] = useState(PROMPT_SECTIONS[0].key);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [status, setStatus] = useState(null);
+  const [copiedToken, setCopiedToken] = useState('');
 
-  const hasChanges = useMemo(() => (
-    JSON.stringify(prompts) !== JSON.stringify(savedPrompts)
+  const changed = useMemo(() => Object.fromEntries(
+    PROMPT_SECTIONS.map(({ key }) => [key, prompts[key] !== savedPrompts[key]])
   ), [prompts, savedPrompts]);
+  const hasChanges = Object.values(changed).some(Boolean);
 
   useEffect(() => {
-    const fetchPrompts = async () => {
-      try {
-        const response = await apiFetch(`/api/ai/prompts`);
-        const data = await response.json();
-
-        if (!response.ok || !data.success) {
-          throw new Error(data.message || 'Failed to load prompt settings.');
-        }
-
-        setPrompts(data.data);
-        setSavedPrompts(data.data);
-      } catch (error) {
-        setStatus({ type: 'error', message: error.message });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchPrompts();
+    apiJson('/api/ai/prompts')
+      .then((data) => {
+        setPrompts(data);
+        setSavedPrompts(data);
+      })
+      .catch((error) => setStatus({ type: 'error', message: error.message }))
+      .finally(() => setIsLoading(false));
   }, []);
-
-  const updatePrompt = (key, value) => {
-    setPrompts((current) => ({
-      ...current,
-      [key]: value,
-    }));
-  };
 
   const handleSave = async () => {
     setIsSaving(true);
     setStatus(null);
-
     try {
-      const response = await apiFetch(`/api/ai/prompts`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(prompts),
-      });
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Failed to save prompt settings.');
-      }
-
-      setPrompts(data.data);
-      setSavedPrompts(data.data);
-      setStatus({ type: 'success', message: 'Prompt settings saved.' });
+      const data = await apiJson('/api/ai/prompts', { method: 'PUT', body: JSON.stringify(prompts) });
+      setPrompts(data);
+      setSavedPrompts(data);
+      setStatus({ type: 'success', message: 'Prompts saved.' });
     } catch (error) {
       setStatus({ type: 'error', message: error.message });
     } finally {
@@ -101,21 +78,13 @@ export default function PromptSettings() {
   };
 
   const handleReset = async () => {
+    if (!window.confirm('Restore all three prompts to the defaults? Your edits will be lost.')) return;
     setIsResetting(true);
     setStatus(null);
-
     try {
-      const response = await apiFetch(`/api/ai/prompts/reset`, {
-        method: 'POST',
-      });
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Failed to reset prompt settings.');
-      }
-
-      setPrompts(data.data);
-      setSavedPrompts(data.data);
+      const data = await apiJson('/api/ai/prompts/reset', { method: 'POST' });
+      setPrompts(data);
+      setSavedPrompts(data);
       setStatus({ type: 'success', message: 'Default prompts restored.' });
     } catch (error) {
       setStatus({ type: 'error', message: error.message });
@@ -124,90 +93,87 @@ export default function PromptSettings() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="flex items-center gap-3 text-stone-400">
-          <RefreshCw className="w-5 h-5 animate-spin text-amber-400" />
-          Loading AI prompt settings...
-        </div>
-      </div>
-    );
-  }
+  const copyToken = async (token) => {
+    await navigator.clipboard.writeText(token);
+    setCopiedToken(token);
+    setTimeout(() => setCopiedToken(''), 1200);
+  };
+
+  const section = PROMPT_SECTIONS.find((s) => s.key === active);
+  const value = prompts[active] || '';
 
   return (
-    <div className="space-y-6 pb-12 h-full overflow-y-auto pr-2">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between sticky top-0 bg-[#0a0f1c]/90 backdrop-blur-md z-10 py-4 -my-4 border-b border-[#292524]">
-        <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-2">
-            <FileSliders className="w-8 h-8 text-amber-500" />
-            AI Prompts
-          </h1>
-          <p className="text-stone-400 mt-1">Instructions currently used by proposal and lead generation</p>
-        </div>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="AI prompts"
+        title="Tune how the AI"
+        highlight="writes for you"
+        description="Edit the instructions behind every proposal and message. Placeholders in {{BRACES}} are filled in automatically."
+        actions={(
+          <>
+            {status && <span className={cn('text-sm', status.type === 'error' ? 'text-danger' : 'text-lagoon')}>{status.message}</span>}
+            <Button variant="secondary" icon={RotateCcw} onClick={handleReset} loading={isResetting} disabled={isSaving || isLoading}>Reset</Button>
+            <Button icon={Save} onClick={handleSave} loading={isSaving} disabled={!hasChanges || isResetting}>Save prompts</Button>
+          </>
+        )}
+      />
 
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={handleReset}
-            disabled={isSaving || isResetting}
-            className="px-4 py-2.5 rounded-xl font-semibold text-stone-300 hover:text-white hover:bg-white/5 border border-[#44403c] transition-colors flex items-center gap-2 disabled:opacity-60"
-          >
-            <RotateCcw className="w-4 h-4" />
-            {isResetting ? 'Resetting...' : 'Reset'}
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!hasChanges || isSaving || isResetting}
-            className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-stone-700 text-white px-5 py-2.5 rounded-xl font-semibold transition-colors flex items-center gap-2"
-          >
-            <Save className="w-4 h-4" />
-            {isSaving ? 'Saving...' : 'Save Prompts'}
-          </button>
-        </div>
-      </div>
+      {isLoading ? (
+        <Card className="p-10 flex justify-center"><Spinner label="Loading your prompts…" /></Card>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-[17rem_minmax(0,1fr)] gap-5 items-start">
+          <div className="flex lg:flex-col gap-2 overflow-x-auto" role="tablist" aria-label="Prompts">
+            {PROMPT_SECTIONS.map((item) => (
+              <button
+                key={item.key}
+                role="tab"
+                aria-selected={active === item.key}
+                onClick={() => setActive(item.key)}
+                className={cn('flex items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition-all min-w-[13rem] lg:min-w-0',
+                  active === item.key ? 'bg-surface border-line-strong shadow-sm' : 'border-transparent hover:bg-surface-2')}
+              >
+                <span className={cn('w-9 h-9 rounded-xl flex items-center justify-center shrink-0', TONES[item.tone].icon)}><item.icon className="w-4 h-4" /></span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-ink">{item.title}</span>
+                  <span className="block text-xs text-ink-3">{changed[item.key] ? 'Unsaved changes' : `${(prompts[item.key] || '').length.toLocaleString()} characters`}</span>
+                </span>
+                {changed[item.key] && <span className="ml-auto w-2 h-2 rounded-full bg-sunbeam shrink-0" />}
+              </button>
+            ))}
+          </div>
 
-      {status && (
-        <div className={cn(
-          'rounded-xl border px-4 py-3 text-sm flex items-center gap-2',
-          status.type === 'success'
-            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
-            : 'border-red-500/30 bg-red-500/10 text-red-200'
-        )}>
-          {status.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-          {status.message}
-        </div>
-      )}
-
-      <div className="space-y-5">
-        {PROMPT_SECTIONS.map((section) => (
-          <section key={section.key} className="glass-panel rounded-2xl border border-white/5 overflow-hidden">
-            <div className="px-5 py-4 border-b border-[#292524] bg-[#1c1917]/70 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <Card className="overflow-hidden">
+            <div className={cn('h-1', TONES[section.tone].dot)} />
+            <div className="p-5 border-b border-line flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-white">{section.title}</h2>
-                <p className="text-sm text-stone-400 mt-1">{section.detail}</p>
+                <h2 className="text-lg font-bold text-ink">{section.title}</h2>
+                <p className="text-sm text-ink-2 mt-0.5">{section.detail}</p>
               </div>
-
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {section.tokens.map((token) => (
-                  <span key={token} className="text-xs font-mono text-amber-200 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2.5 py-1">
-                    {token}
-                  </span>
+                  <button key={token} onClick={() => copyToken(token)} title="Copy placeholder"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-ultraviolet bg-ultraviolet-soft px-2.5 py-1 font-mono text-xs text-ultraviolet hover:bg-ultraviolet-soft">
+                    {copiedToken === token ? <Check className="w-3 h-3" /> : <Braces className="w-3 h-3" />}{token}
+                  </button>
                 ))}
               </div>
             </div>
-
             <textarea
-              value={prompts[section.key]}
-              onChange={(event) => updatePrompt(section.key, event.target.value)}
-              rows={section.rows}
+              value={value}
+              onChange={(event) => setPrompts((current) => ({ ...current, [active]: event.target.value }))}
               spellCheck={false}
-              className="w-full bg-[#0f0d0c] text-stone-100 border-0 p-5 font-mono text-sm leading-6 resize-y focus:outline-none focus:ring-2 focus:ring-inset focus:ring-amber-500/50 placeholder:text-stone-500"
+              aria-label={section.title}
+              className="w-full min-h-[32rem] bg-surface-2 text-ink p-5 font-mono text-[0.83rem] leading-6 resize-y focus:outline-none focus:bg-surface"
             />
-          </section>
-        ))}
-      </div>
+            <div className="px-5 py-3 border-t border-line flex flex-wrap items-center justify-between gap-2 text-xs text-ink-3">
+              <span>{value.split('\n').length} lines · {value.length.toLocaleString()} / 40,000 characters</span>
+              {section.tokens.some((token) => !value.includes(token)) && (
+                <Badge tone="sunbeam">Missing placeholder: {section.tokens.filter((token) => !value.includes(token)).join(', ')}</Badge>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
