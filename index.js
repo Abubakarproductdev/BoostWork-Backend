@@ -1,72 +1,18 @@
-const express = require('express');
 const dotenv = require('dotenv');
 const path = require('path');
 dotenv.config({ path: path.join(__dirname, '.env'), quiet: true });
 
-const cors = require('cors');
-const colors = require('colors'); 
-const { createRateLimiter } = require('./middleware/security');
-const { requireAuth } = require('./middleware/auth');
-const proposalRoutes = require('./routes/ProposalRoutes');
+require('colors');
 const connectDB = require('./Config/dbConfig');
-const portfolioRoutes = require('./routes/portfolioRoutes'); 
-const aiRoutes = require('./routes/aiRoutes'); 
+const { createApp } = require('./app');
+const jobRunner = require('./services/workflows');
 
-
-// Connect to MongoDB
-connectDB();
-
-const app = express();
-const allowedOrigins = (process.env.CORS_ORIGIN || 'https://boost-working.vercel.app, http://localhost:5173')
-    .split(',')
-    .map((o) => o.trim().replace(/\/$/, ''))
-    .filter(Boolean);
-const aiLimiter = createRateLimiter({
-    windowMs: 60 * 1000,
-    maxRequests: 20,
-    message: 'Too many AI generation requests. Please wait a moment and try again.',
+// Connect to MongoDB, then start processing background workflows
+connectDB().then(() => jobRunner.start()).catch((error) => {
+    console.error('Could not start the background job runner:', error.message);
 });
 
-// --- Middleware ---
-app.disable('x-powered-by');
-app.set('trust proxy', 1);
-
-app.use(cors({
-    origin(origin, callback) {
-        if (!origin) return callback(null, true);
-        
-        const cleanOrigin = origin.replace(/\/$/, '');
-        
-        // Allow exactly matched origins OR any Vercel deployment URL
-        if (allowedOrigins.includes(cleanOrigin) || /^https:\/\/(.*\.)?vercel\.app$/.test(cleanOrigin)) {
-            return callback(null, true);
-        }
-
-        return callback(new Error(`CORS origin not allowed: ${origin}`));
-    },
-}));
-
-app.use(express.json({ limit: '100kb' }));
-app.use(express.urlencoded({ extended: false, limit: '100kb' }));
-
-
-// --- API Routes ---
-
-app.get('/health', (_req, res) => {
-    res.status(200).json({
-        success: true,
-        status: 'ok',
-    });
-});
-
-// Every /api route requires a signed-in Firebase user; data is scoped to req.user.uid.
-app.use('/api', requireAuth);
-
-app.use('/api/proposals', proposalRoutes);
-app.use('/api/portfolio', portfolioRoutes); 
-app.use('/api/ai', aiLimiter, aiRoutes); 
-
-
+const app = createApp();
 const PORT = process.env.PORT || 5000;
 
 app.listen(

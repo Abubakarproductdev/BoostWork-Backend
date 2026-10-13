@@ -2,6 +2,7 @@
 const Proposal = require('../models/Proposal');
 const mongoose = require('mongoose');
 const { validateProposalPayload } = require('../middleware/security');
+const { statusDatesFor, toSetPaths } = require('../services/proposalUpdates');
 
 /**
  * @desc    Create a new proposal.
@@ -31,7 +32,12 @@ exports.createProposal = async (req, res) => {
         // req.body will contain all the data sent from your React form.
         // We create a new Proposal document in memory using this data.
         // Ownership always comes from the verified token, never from the request body.
-        const newProposal = new Proposal({ ...req.body, userId: req.user.uid });
+        const { _id: _ignoredId, userId: _ignoredUser, ...fields } = req.body;
+        const newProposal = new Proposal({
+            ...fields,
+            ...statusDatesFor(fields.status || 'draft', fields),
+            userId: req.user.uid,
+        });
 
         // We save the document to the MongoDB database. This is an async operation.
         const savedProposal = await newProposal.save();
@@ -156,16 +162,20 @@ exports.updateProposal = async (req, res) => {
             });
         }
 
-        // findOneAndUpdate scoped to the owner, so users can only edit their own proposals.
-        // req.body contains the fields you want to change.
-        // { new: true } ensures the updated document is returned.
-        // { runValidators: true } ensures any new data still meets schema rules.
-        const { userId: _ignored, _id: _ignoredId, ...updates } = req.body;
+        // Only the fields sent are changed (nested objects become dot paths), so an
+        // edit never wipes stored sub-fields such as clientInfo.persona.
+        // Status changes record when the proposal first reached that status.
+        const updates = {
+            ...toSetPaths(req.body),
+            ...statusDatesFor(req.body.status || proposal.status, proposal),
+        };
+
+        // Scoped to the owner, so users can only edit their own proposals.
         const updatedProposal = await Proposal.findOneAndUpdate(
             { _id: req.params.id, userId: req.user.uid },
-            updates,
+            { $set: updates },
             {
-                new: true,
+                returnDocument: 'after',
                 runValidators: true,
             }
         );

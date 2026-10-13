@@ -1,97 +1,36 @@
 const cacheService = require('../services/cacheService');
 const {
+    analyzePersona,
+    formatPortfolioContext,
     getPromptConfig,
     hydrateTemplate,
     resetPromptConfig,
     savePromptConfig,
 } = require('../services/promptService');
 
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+const { chat, modelFor } = require('../services/modelGateway');
 
-const getGroqApiKey = () => {
-    const apiKey = process.env.GROQ_API_KEY?.trim() || process.env.GROK_API_KEY?.trim();
-
-    if (!apiKey) {
-        const error = new Error('GROQ_API_KEY is missing in Backend/.env');
-        error.statusCode = 500;
-        throw error;
-    }
-
-    return apiKey;
-};
-
+// Quick single-call generation (the multi-stage workflow lives in proposalWorkflowService).
 const generateWithGroq = async ({ systemInstruction, userPrompt, responseFormat }) => {
-    const payload = {
-        model: GROQ_MODEL,
-        messages: [
-            { role: 'system', content: systemInstruction },
-            { role: 'user', content: userPrompt },
-        ],
+    const response = await chat({
+        tier: 'fast',
+        system: systemInstruction,
+        user: userPrompt,
+        json: responseFormat?.type === 'json_object',
         temperature: 0.85,
-    };
-
-    if (responseFormat) {
-        payload.response_format = responseFormat;
-    }
-
-    const response = await fetch(GROQ_API_URL, {
-        method: 'POST',
-        headers: {
-            Authorization: `Bearer ${getGroqApiKey()}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
     });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        const error = new Error(`Groq API error (${response.status}): ${errorText}`);
-        error.statusCode = response.status;
-        throw error;
-    }
-
-    const responseData = await response.json();
-    const responseText = responseData?.choices?.[0]?.message?.content?.trim();
-
-    if (!responseText) {
-        throw new Error('Groq returned an empty response. Please try again.');
-    }
-
-    return responseText;
+    return response.text;
 };
 
 const buildPortfolioContext = async (user) => {
+    let portfolioData;
     try {
-        const portfolioData = await cacheService.getPortfolioContext(user.uid);
-        const profile = portfolioData?.profile || {};
-        const projects = portfolioData?.projects || [];
-
-        let portfolioContextStr = `Name: ${profile.fullName || user.name || 'Freelancer'}\nTitle: ${profile.title || 'Professional Industrial Designer'}\nBio: ${profile.bio || 'Expert in 3D printing products and DFM ready design workflows.'}\n\nPROJECTS:\n`;
-
-        projects.forEach((project) => {
-            portfolioContextStr += `- ${project.title} (${project.technologies?.join(', ') || ''}):\n  ${project.description}\n`;
-        });
-
-        return portfolioContextStr;
+        portfolioData = await cacheService.getPortfolioContext(user.uid);
     } catch (error) {
         throw new Error('Could not read portfolio context from the database.');
     }
-};
 
-const analyzePersona = (jobDescription) => {
-    const text = jobDescription.toLowerCase();
-    const isTechnical = text.includes('api')
-        || text.includes('react')
-        || text.includes('architecture')
-        || text.includes('solidworks')
-        || text.includes('pine script');
-
-    if (isTechnical) {
-        return 'PERSONA INSTRUCTION: The client is highly technical. Use strict engineering terms, mention specific frameworks, and keep the tone analytical and precise.';
-    }
-
-    return 'PERSONA INSTRUCTION: The client is a business owner or non-technical manager. Focus on ROI, delivery speed, smooth communication, and end-user experience. Avoid deep code jargon.';
+    return formatPortfolioContext(portfolioData, user.name);
 };
 
 /**
@@ -189,7 +128,7 @@ exports.generateProposal = async (req, res) => {
             JOB_DESCRIPTION: jobDescription,
         });
 
-        console.log(`Generating proposal with ${GROQ_MODEL}...`);
+        console.log(`Generating proposal with ${modelFor('fast')}...`);
         const responseText = await generateWithGroq({
             systemInstruction,
             userPrompt: finalPrompt,
@@ -201,7 +140,7 @@ exports.generateProposal = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            modelUsed: GROQ_MODEL,
+            modelUsed: modelFor('fast'),
             data: proposalData,
         });
     } catch (error) {
@@ -234,7 +173,7 @@ exports.generateLead = async (req, res) => {
             CONTEXT: context,
         });
 
-        console.log(`Generating lead with ${GROQ_MODEL}...`);
+        console.log(`Generating lead with ${modelFor('fast')}...`);
         const responseText = await generateWithGroq({
             systemInstruction,
             userPrompt: finalPrompt,
@@ -242,7 +181,7 @@ exports.generateLead = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            modelUsed: GROQ_MODEL,
+            modelUsed: modelFor('fast'),
             data: responseText.trim(),
         });
     } catch (error) {

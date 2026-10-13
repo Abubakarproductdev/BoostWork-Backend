@@ -17,6 +17,12 @@ const getFirebaseAuth = () => {
     return getAuth();
 };
 
+// Tests replace token verification so they don't need real Firebase tokens.
+let verifyTokenOverride = null;
+const setTokenVerifierForTests = (fn) => {
+    verifyTokenOverride = fn;
+};
+
 /**
  * Requires a valid Firebase ID token in the `Authorization: Bearer <token>` header.
  * On success, attaches `req.user = { uid, email, name }` for downstream controllers.
@@ -32,8 +38,21 @@ const requireAuth = async (req, res, next) => {
         });
     }
 
+    let verifyIdToken;
     try {
-        const decoded = await getFirebaseAuth().verifyIdToken(match[1]);
+        verifyIdToken = verifyTokenOverride || ((token) => getFirebaseAuth().verifyIdToken(token));
+        if (!verifyTokenOverride) getFirebaseAuth();
+    } catch (error) {
+        // Server misconfiguration, not the user's fault: don't report it as an expired session.
+        console.error('Auth setup failed:', error.message);
+        return res.status(500).json({
+            success: false,
+            message: 'Server authentication is not configured (FIREBASE_PROJECT_ID missing).',
+        });
+    }
+
+    try {
+        const decoded = await verifyIdToken(match[1]);
 
         req.user = {
             uid: decoded.uid,
@@ -51,4 +70,4 @@ const requireAuth = async (req, res, next) => {
     }
 };
 
-module.exports = { requireAuth };
+module.exports = { requireAuth, setTokenVerifierForTests };

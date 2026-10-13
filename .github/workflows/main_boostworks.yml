@@ -24,10 +24,15 @@ jobs:
           node-version: '22.x'
           cache: 'npm'
 
-      - name: Install production dependencies and test
+      # Tests use dev dependencies (in-memory MongoDB), so install everything,
+      # test, then remove dev dependencies before packaging.
+      - name: Install dependencies and run tests
         run: |
-          npm ci --omit=dev
-          npm run test --if-present
+          npm ci
+          npm test
+
+      - name: Remove dev dependencies
+        run: npm prune --omit=dev
 
       # node_modules is shipped inside the zip, so the app starts without
       # needing a build on the Azure side.
