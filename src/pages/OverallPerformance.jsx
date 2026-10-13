@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { computeMetrics, MIN_SAMPLE_FOR_RATES } from '../lib/metrics';
 import { cn } from '../lib/utils';
-import { Button, Card, EmptyState, IconTile, Notice, TONES } from '../components/ui';
+import { Button, Card, EmptyState, IconTile, Notice } from '../components/ui';
 
 const TIMEFRAMES = [
   { value: 1, label: 'Today' },
@@ -62,14 +62,14 @@ function Funnel({ steps }) {
       {steps.map((step, i) => (
         <div key={step.name}>
           <div className="flex items-baseline justify-between text-sm mb-1.5">
-            <span className="font-semibold text-ink">{step.name}</span>
-            <span className="text-ink-2">
-              <span className="font-display font-bold text-ink text-base">{step.value}</span>
-              {i > 0 && steps[0].value > 0 && <span className="text-xs text-ink-3 ml-1.5">{Math.round((step.value / steps[0].value) * 100)}%</span>}
+            <span className="font-semibold">{step.name}</span>
+            <span>
+              <span className="font-display font-bold text-base">{step.value}</span>
+              {i > 0 && steps[0].value > 0 && <span className="text-xs ml-1.5">{Math.round((step.value / steps[0].value) * 100)}%</span>}
             </span>
           </div>
-          <div className="h-3 rounded-full bg-surface-2 overflow-hidden">
-            <div className={cn('h-full rounded-full transition-all duration-700', TONES[step.tone].dot)} style={{ width: `${Math.max(step.value ? 4 : 0, (step.value / max) * 100)}%` }} />
+          <div className="h-3 rounded-full bg-[#000000] overflow-hidden">
+            <div className={cn('h-full rounded-full transition-all duration-700', step.bar)} style={{ width: `${Math.max(step.value ? 4 : 0, (step.value / max) * 100)}%` }} />
           </div>
         </div>
       ))}
@@ -110,7 +110,7 @@ export default function OverallPerformance() {
         <div>
           <p className="eyebrow mb-2">{greeting()}{firstName ? `, ${firstName}` : ''}</p>
           <h1 className="text-4xl md:text-5xl font-bold text-ink leading-[1.02]">
-            Your <span className="text-brand">momentum</span>, at a glance
+            Your momentum, at a glance
           </h1>
         </div>
         <div className="inline-flex p-1 rounded-2xl bg-surface border border-line shadow-sm self-start lg:self-auto overflow-x-auto max-w-full" role="tablist" aria-label="Time period">
@@ -207,17 +207,18 @@ export default function OverallPerformance() {
           </div>
         </Card>
 
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold text-ink mb-5">Conversion funnel</h2>
+        {/* Solid teal card: black text, black tracks, cream/yellow/teal bars */}
+        <Card className="p-6 bg-lagoon border-lagoon text-[#000000]">
+          <h2 className="text-lg font-semibold mb-5">Conversion funnel</h2>
           {metrics.submitted ? (
             <Funnel steps={[
-              { name: 'Submitted', value: metrics.submitted, tone: 'ink' },
-              { name: 'Viewed', value: metrics.viewed, tone: 'ultraviolet' },
-              { name: 'Responded', value: metrics.responded, tone: 'sunbeam' },
-              { name: 'Won', value: metrics.won, tone: 'lagoon' },
+              { name: 'Submitted', value: metrics.submitted, bar: 'bg-[#fbf6ea]' },
+              { name: 'Viewed', value: metrics.viewed, bar: 'bg-[#fbf6ea]' },
+              { name: 'Responded', value: metrics.responded, bar: 'bg-sunbeam' },
+              { name: 'Won', value: metrics.won, bar: 'bg-lagoon' },
             ]} />
           ) : (
-            <p className="text-sm text-ink-3 py-10 text-center">The funnel appears once you've submitted proposals in this period.</p>
+            <p className="text-sm py-10 text-center">The funnel appears once you've submitted proposals in this period.</p>
           )}
         </Card>
       </div>
