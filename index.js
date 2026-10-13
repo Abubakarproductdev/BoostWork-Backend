@@ -6,6 +6,7 @@ dotenv.config({ path: path.join(__dirname, '.env'), quiet: true });
 const cors = require('cors');
 const colors = require('colors'); 
 const { createRateLimiter } = require('./middleware/security');
+const { requireAuth } = require('./middleware/auth');
 const proposalRoutes = require('./routes/ProposalRoutes');
 const connectDB = require('./Config/dbConfig');
 const portfolioRoutes = require('./routes/portfolioRoutes'); 
@@ -57,6 +58,9 @@ app.get('/health', (_req, res) => {
         status: 'ok',
     });
 });
+
+// Every /api route requires a signed-in Firebase user; data is scoped to req.user.uid.
+app.use('/api', requireAuth);
 
 app.use('/api/proposals', proposalRoutes);
 app.use('/api/portfolio', portfolioRoutes); 

@@ -9,7 +9,7 @@ const cacheService = require('../services/cacheService');
  */
 exports.getPortfolio = async (req, res) => {
     try {
-        const portfolioData = await cacheService.getPortfolioContext();
+        const portfolioData = await cacheService.getPortfolioContext(req.user.uid);
 
         res.status(200).json({
             success: true,
@@ -50,10 +50,11 @@ exports.updatePortfolio = async (req, res) => {
             });
         }
 
-        let portfolio = await Portfolio.findOne({});
-        
+        const userId = req.user.uid;
+        let portfolio = await Portfolio.findOne({ userId });
+
         if (!portfolio) {
-            portfolio = new Portfolio(newPortfolioData);
+            portfolio = new Portfolio({ ...newPortfolioData, userId });
             await portfolio.save();
         } else {
             portfolio.profile = newPortfolioData.profile || {};
@@ -62,7 +63,7 @@ exports.updatePortfolio = async (req, res) => {
             await portfolio.save();
         }
 
-        cacheService.setPortfolioContext(portfolio);
+        cacheService.setPortfolioContext(userId, portfolio);
 
         res.status(200).json({
             success: true,

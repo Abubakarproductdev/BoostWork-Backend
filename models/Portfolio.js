@@ -19,6 +19,7 @@ const profileSchema = new mongoose.Schema({
 });
 
 const portfolioSchema = new mongoose.Schema({
+    userId: { type: String, required: true, index: true },
     profile: { type: profileSchema, default: {} },
     projects: { type: [projectSchema], default: [] },
     links: { type: [linkSchema], default: [] }

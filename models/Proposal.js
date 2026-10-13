@@ -3,6 +3,12 @@ const { Schema } = mongoose;
 
 // Changed variable name to 'proposalSchema' for clarity
 const proposalSchema = new Schema({
+    // Firebase uid of the owner; every query is scoped by this
+    userId: {
+        type: String,
+        required: true,
+        index: true,
+    },
     title: {
         type: String,
         required: [true, 'Job title is required.'],

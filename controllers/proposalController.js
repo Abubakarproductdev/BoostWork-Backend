@@ -30,7 +30,8 @@ exports.createProposal = async (req, res) => {
 
         // req.body will contain all the data sent from your React form.
         // We create a new Proposal document in memory using this data.
-        const newProposal = new Proposal(req.body);
+        // Ownership always comes from the verified token, never from the request body.
+        const newProposal = new Proposal({ ...req.body, userId: req.user.uid });
 
         // We save the document to the MongoDB database. This is an async operation.
         const savedProposal = await newProposal.save();
@@ -63,7 +64,7 @@ exports.createProposal = async (req, res) => {
  */
 exports.getAllProposals = async (req, res) => {
     try {
-        const proposals = await Proposal.find().sort({ createdAt: -1 });
+        const proposals = await Proposal.find({ userId: req.user.uid }).sort({ createdAt: -1 });
 
         res.status(200).json({
             success: true,
@@ -95,7 +96,7 @@ exports.getProposalById = async (req, res) => {
             });
         }
 
-        const proposal = await Proposal.findById(req.params.id);
+        const proposal = await Proposal.findOne({ _id: req.params.id, userId: req.user.uid });
 
         if (!proposal) {
             return res.status(404).json({ 
@@ -146,7 +147,7 @@ exports.updateProposal = async (req, res) => {
         }
 
         // Find the proposal by the ID passed in the URL
-        const proposal = await Proposal.findById(req.params.id);
+        const proposal = await Proposal.findOne({ _id: req.params.id, userId: req.user.uid });
 
         if (!proposal) {
             return res.status(404).json({ 
@@ -155,13 +156,14 @@ exports.updateProposal = async (req, res) => {
             });
         }
 
-        // Use findByIdAndUpdate for efficiency. It finds and updates in one go.
+        // findOneAndUpdate scoped to the owner, so users can only edit their own proposals.
         // req.body contains the fields you want to change.
         // { new: true } ensures the updated document is returned.
         // { runValidators: true } ensures any new data still meets schema rules.
-        const updatedProposal = await Proposal.findByIdAndUpdate(
-            req.params.id, 
-            req.body, 
+        const { userId: _ignored, _id: _ignoredId, ...updates } = req.body;
+        const updatedProposal = await Proposal.findOneAndUpdate(
+            { _id: req.params.id, userId: req.user.uid },
+            updates,
             {
                 new: true,
                 runValidators: true,
@@ -199,7 +201,7 @@ exports.deleteProposal = async (req, res) => {
             });
         }
 
-        const proposal = await Proposal.findByIdAndDelete(req.params.id);
+        const proposal = await Proposal.findOneAndDelete({ _id: req.params.id, userId: req.user.uid });
 
         if (!proposal) {
             return res.status(404).json({ 

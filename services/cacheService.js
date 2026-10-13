@@ -1,25 +1,22 @@
 const Portfolio = require('../models/Portfolio');
 
-let cachedPortfolio = null;
+// Per-user in-memory cache: uid -> portfolio document
+const cachedPortfolios = new Map();
 
 /**
- * Retrieves the portfolio context directly from Cache. 
- * If cache is completely empty (on server start), it executes ONE exact load sequence from MongoDB.
+ * Retrieves a user's portfolio context from cache.
+ * On a cache miss it loads that user's portfolio from MongoDB once.
  */
-const getPortfolioContext = async () => {
-    if (cachedPortfolio !== null) {
-        return cachedPortfolio;
+const getPortfolioContext = async (userId) => {
+    if (cachedPortfolios.has(userId)) {
+        return cachedPortfolios.get(userId);
     }
 
     try {
-        const portfolioData = await Portfolio.findOne({});
-        if (portfolioData) {
-            cachedPortfolio = portfolioData;
-        } else {
-            // Return empty layout if completely empty
-            cachedPortfolio = { profile: {}, projects: [], links: [] };
-        }
-        return cachedPortfolio;
+        const portfolioData = await Portfolio.findOne({ userId });
+        const context = portfolioData || { profile: {}, projects: [], links: [] };
+        cachedPortfolios.set(userId, context);
+        return context;
     } catch (error) {
         console.error("Cache Service: Failed to fetch from MongoDB", error);
         throw error;
@@ -27,10 +24,10 @@ const getPortfolioContext = async () => {
 };
 
 /**
- * Whenever a user clicks 'Save Profile' actively from the customize details, it forcefully refreshes the memory.
+ * Called when a user saves their profile, so the AI immediately uses the new context.
  */
-const setPortfolioContext = (newContext) => {
-    cachedPortfolio = newContext;
+const setPortfolioContext = (userId, newContext) => {
+    cachedPortfolios.set(userId, newContext);
 };
 
 module.exports = {
